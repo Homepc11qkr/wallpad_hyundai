@@ -1,6 +1,6 @@
 esphome:
-  name: 485-esp32-ip84
-  friendly_name: esp32_ttlto485_esp32dev_ip84
+  name: ttl485-esp32-ip84
+  friendly_name: ttlto485_esp32_ip84
   on_boot:
     priority: -100  # 부팅 완료 후 가장 마지막 단계에서 실행 (우선순위 낮게 설정)
     then:
@@ -52,13 +52,12 @@ captive_portal:
 debug:
   update_interval: 5s
 
-# ========================= 485 wallpad connection ========================== 
-# ========================= 485 wallpad connection ========================== 
-# ========================= 485 wallpad connection ========================== 
+# ========================= ttl to 485 wallpad connection ========================== 
 #  github 정보 > external_components > 485 연결에 현대통신 월패드 스위치 보일러 센서 구성입니다
     # https://cafe.naver.com/homestation/222
     # https://github.com/eigger/espcomponents/tree/master/packages/wallpad
     # https://github.com/Homepc11qkr/wallpad_hyundai/upload/main
+# ========================= ttl to 485 wallpad connection ========================== 
 
 external_components:
   - source: github://eigger/espcomponents/relreases/latest
@@ -75,11 +74,10 @@ uart:
   parity: NONE
   data_bits: 8
 
-
 uartex:
   rx_timeout: 10ms
   tx_delay: 50ms
-  tx_timeout: 500ms
+  tx_timeout: 800ms
   tx_retry_cnt: 3
   rx_header: [0xf7]
   rx_footer: [0xee]
@@ -93,20 +91,6 @@ uartex:
     disabled: False
   log:
     disabled: False
-
- 
-# web_server:
-#   port: 80
-#   version: 2
-#   include_internal: true
-  
-
-# mqtt:
-#   broker: 192.168.0.35
-#   username: mqtt_user
-#   password: mqtt_pass  
-#   discovery: false
-# Home Assistant의 시간 정보를 사용
 
 time:
   - platform: homeassistant
@@ -162,7 +146,6 @@ text_sensor:
 
 # sensor:
 sensor:
-
   # RAM 사용량 (%)
   - platform: template
     name: "1_RAM Usage (%)"
@@ -199,43 +182,45 @@ sensor:
     unit_of_measurement: "Signal %"
     entity_category: "diagnostic"
     device_class: ""
-# sensor:
-# sensor:
-  - platform: homeassistant
-    id: temp_boiler_living_room
-    entity_id: climate.485_esp32_ip84_boiler_living_room
-    attribute: current_temperature
-    name: "temp_boiler_living_room"
-    unit_of_measurement: "°C"
-    accuracy_decimals: 0
-    internal: false  # Home Assistant에서 사용 가능하도록 설정
-    
-  - platform: homeassistant
-    id: temp_boiler_big_room
-    entity_id: climate.485_esp32_ip84_boiler_big_room
-    attribute: current_temperature
-    name: "temp_boiler_big_room"
-    unit_of_measurement: "°C"
-    accuracy_decimals: 0
-    internal: false  # Home Assistant에서 사용 가능하도록 설정
 
-  - platform: homeassistant
-    id: temp_boiler_small_room
-    entity_id: climate.485_esp32_ip84_boiler_small_room
-    attribute: current_temperature
-    name: "temp_boiler_small_room"
+# sensor:
+  # boiler 온도센서 활성화
+  - platform: template
+    name: "Temperature_living_room"
+    id: Temperature_living_room
     unit_of_measurement: "°C"
     accuracy_decimals: 0
-    internal: false  # Home Assistant에서 사용 가능하도록 설정
-    
-  - platform: homeassistant
-    id: temp_boiler_book_room
-    entity_id: climate.485_esp32_ip84_boiler_book_room
-    attribute: current_temperature
-    name: "temp_boiler_book_room"
+    lambda: |-
+      return id(Boiler_living_room).current_temperature;
+    update_interval: 10s
+
+  - platform: template
+    name: "Temperature_big_room"
+    id: Temperature_big_room
     unit_of_measurement: "°C"
     accuracy_decimals: 0
-    internal: false  # Home Assistant에서 사용 가능하도록 설정
+    lambda: |-
+      return id(Boiler_big_room).current_temperature;
+    update_interval: 10s
+ 
+  - platform: template
+    name: "Temperature_small_room"
+    id: Temperature_small_room
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(Boiler_small_room).current_temperature;
+    update_interval: 10s
+ 
+  - platform: template
+    name: "Temperature_book_room"
+    id: Temperature_book_room
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(Boiler_book_room).current_temperature;
+    update_interval: 10s
+
 
 #--------------------------------------------------------------------------
 light:
@@ -445,6 +430,7 @@ climate:
 
   - platform: uartex
     name: "Boiler_big_room"
+    id: Boiler_big_room
     visual:
       min_temperature: 5 °C
       max_temperature: 40 °C
@@ -495,6 +481,7 @@ climate:
 
   - platform: uartex
     name: "Boiler_small_room"
+    id: Boiler_small_room
     visual:
       min_temperature: 5 °C
       max_temperature: 40 °C
@@ -545,6 +532,7 @@ climate:
 
   - platform: uartex
     name: "Boiler_book_room"
+    id: Boiler_book_room
     visual:
       min_temperature: 5 °C
       max_temperature: 40 °C
@@ -686,7 +674,7 @@ switch:
 # ===============================================================================================
 button:
   - platform: template
-    name: "All_Boiler_on_sw"
+    name: "Boiler_all_on_sw"
     on_press:
       then:
         - switch.turn_on: Boiler_living_room_sw
@@ -697,6 +685,7 @@ button:
         - delay: 1s
         - switch.turn_on: Boiler_book_room_sw
         - delay: 1s
+        # error 대응 2번 실행 
         - switch.turn_on: Boiler_living_room_sw
         - delay: 1s
         - switch.turn_on: Boiler_big_room_sw
@@ -707,7 +696,7 @@ button:
         - delay: 1s
 
   - platform: template
-    name: "All_Boiler_off_sw"
+    name: "Boiler_all_off_sw"
     on_press:
       then:
         - switch.turn_off: Boiler_living_room_sw
@@ -728,7 +717,7 @@ button:
         - delay: 1s
 
   - platform: template
-    name: "All_Light_on_sw"
+    name: "Light_all_on_sw"
     on_press:
       then:
         - light.turn_on: living_room_a
@@ -752,7 +741,7 @@ button:
         - light.turn_on: living_room_bogdo_a
         - delay: 1s
   - platform: template
-    name: "All_Light_off_sw"
+    name: "Light_all_off_sw"
     on_press:
       then:
         - light.turn_off: living_room_a
@@ -781,7 +770,79 @@ button:
     #   ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
 # ===========button:=========================================================== 
   - platform: template
-    name: "All_Boiler_on_uartex"
+    name: "Boiler_all_off_Setting_c"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: "off"
+            # 2번실핼 에러대응
+        - climate.control:
+            id: Boiler_living_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: "off"
+  - platform: template
+    name: "Boiler_all_heat_Setting_c"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: "Heat"
+          # 2번실핼 에러대응
+        - climate.control:
+            id: Boiler_living_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: "Heat"
+
+
+  - platform: template
+    name: "Boiler_all_on_uartex"
     on_press:
       then:
         - uartex.write:
@@ -827,7 +888,7 @@ button:
 #   data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x04, 0x00]
 #   ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x04, 0x04]
   - platform: template
-    name: "All_Boiler_off_uartex"
+    name: "Boiler_all_off_uartex"
     on_press:
       then:
         - uartex.write:
@@ -878,308 +939,371 @@ button:
 # 보일러 온도설정
 # --------------------------------  
 # button:
-# button:
+  
   - platform: template
-    name: "8_°C_All_Setting"
+    name: "8_°C_All_Setting_u"
     on_press:
       then:
         - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x08, 0x00]  # 거실 보일러 OFF
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x08, 0x01]   
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x08, 0x00]  # 거실 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x08, 0x01]
         - delay: 1s
         - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x08, 0x00]  # 안방 보일러 OFF
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x08, 0x01]   
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x08, 0x00]  # 안방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x08, 0x00]  # 작은방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x08, 0x00]  # 서재방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x08, 0x00]  # 거실 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x08, 0x00]  # 안방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x08, 0x00]  # 작은방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x08, 0x00]  # 서재방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x08, 0x01]
+        - delay: 1s       
+# ===========button:===========================================================
 
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x08, 0x00]  # 작은방 보일러 OFF
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x08, 0x01]   
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x08, 0x00]  # 서재방 보일러 OFF
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x08, 0x01]    
-            #  한번더 명령을 2회실행하면 빠지는부분 해결 --------------------------------
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x08, 0x00]  # 거실 보일러 OFF
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x08, 0x01]   
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x08, 0x00]  # 안방 보일러 OFF
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x08, 0x01]   
-
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x08, 0x00]  # 작은방 보일러 OFF
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x08, 0x01]   
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x08, 0x00]  # 서재방 보일러 OFF
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x08, 0x01]        
-  # ===========button:===========================================================
-  # 20°C~25°C 보일러 설정 버튼
+  - platform: template
+    name: "11_°C_All_Setting"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s  
+   
   - platform: template
     name: "20_°C_All_Setting"
     on_press:
       then:
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x14, 0x00]  # 거실 보일러 20°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x14, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x14, 0x00]  # 안방 보일러 20°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x14, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x14, 0x00]  # 작은방 보일러 20°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x14, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x14, 0x00]  # 서재방 보일러 20°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x14, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x14, 0x00]  # 거실 보일러 20°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x14, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x14, 0x00]  # 안방 보일러 20°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x14, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x14, 0x00]  # 작은방 보일러 20°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x14, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x14, 0x00]  # 서재방 보일러 20°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x14, 0x01]
-        - delay: 1s        
-  # 20°C~25°C 보일러 설정 버튼
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+            # 에러대응 2번 실행
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s  
+   
+  # ===========button:===========================================================
+   
+  
   - platform: template
     name: "21_°C_All_Setting"
     on_press:
       then:
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x15, 0x00]  # 거실 보일러 21°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x15, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x15, 0x00]  # 안방 보일러 21°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x15, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x15, 0x00]  # 작은방 보일러 21°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x15, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x15, 0x00]  # 서재방 보일러 21°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x15, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x15, 0x00]  # 거실 보일러 21°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x15, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x15, 0x00]  # 안방 보일러 21°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x15, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x15, 0x00]  # 작은방 보일러 21°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x15, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x15, 0x00]  # 서재방 보일러 21°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x15, 0x01]
-        - delay: 1s        
-  # 20°C~25°C 보일러 설정 버튼
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        # 에러대응 2번 실행
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s       
+  
   - platform: template
     name: "22_°C_All_Setting"
     on_press:
       then:
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x16, 0x00]  # 거실 보일러 22°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x16, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x16, 0x00]  # 안방 보일러 22°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x16, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x16, 0x00]  # 작은방 보일러 22°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x16, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x16, 0x00]  # 서재방 보일러 22°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x16, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x16, 0x00]  # 거실 보일러 22°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x16, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x16, 0x00]  # 안방 보일러 22°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x16, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x16, 0x00]  # 작은방 보일러 22°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x16, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x16, 0x00]  # 서재방 보일러 22°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x16, 0x01]
-        - delay: 1s
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+            # 에러대응 2번 실행
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s 
                 
-  # 20°C~25°C 보일러 설정 버튼
+  
   - platform: template
     name: "23_°C_All_Setting"
     on_press:
       then:
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x17, 0x00]  # 거실 보일러 23°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x17, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x17, 0x00]  # 안방 보일러 23°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x17, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x17, 0x00]  # 작은방 보일러 23°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x17, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x17, 0x00]  # 서재방 보일러 23°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x17, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x17, 0x00]  # 거실 보일러 23°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x17, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x17, 0x00]  # 안방 보일러 23°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x17, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x17, 0x00]  # 작은방 보일러 23°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x17, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x17, 0x00]  # 서재방 보일러 23°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x17, 0x01]
-        - delay: 1s        
-  # 20°C~25°C 보일러 설정 버튼
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+            # 에러대응 2번 실행
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s      
+  
   - platform: template
     name: "24_°C_All_Setting"
     on_press:
       then:
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x18, 0x00]  # 거실 보일러 24°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x18, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x18, 0x00]  # 안방 보일러 24°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x18, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x18, 0x00]  # 작은방 보일러 24°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x18, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x18, 0x00]  # 서재방 보일러 24°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x18, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x18, 0x00]  # 거실 보일러 24°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x18, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x18, 0x00]  # 안방 보일러 24°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x18, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x18, 0x00]  # 작은방 보일러 24°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x18, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x18, 0x00]  # 서재방 보일러 24°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x18, 0x01]
-        - delay: 1s        
-  # 20°C~25°C 보일러 설정 버튼
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+            # 에러대응 2번 실행
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s  
+  
   - platform: template
     name: "25_°C_All_Setting"
     on_press:
       then:
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x19, 0x00]  # 거실 보일러 25°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x19, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x19, 0x00]  # 안방 보일러 25°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x19, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x19, 0x00]  # 작은방 보일러 25°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x19, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x19, 0x00]  # 서재방 보일러 25°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x19, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x19, 0x00]  # 거실 보일러 25°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x19, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x19, 0x00]  # 안방 보일러 25°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x19, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x19, 0x00]  # 작은방 보일러 25°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x19, 0x01]
-        - delay: 1s
-        - uartex.write:
-            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x19, 0x00]  # 서재방 보일러 25°C 설정
-            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x19, 0x01]
-        - delay: 1s
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        #  2번 실행으로 에러 대응
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s  
+#  2025_0216_2206_08
 
-#  2025_0216_1902_12
-# ===========button:===========================================================
-  # - platform: template
-  #   name: "10_°C_All_Setting"
-  #   on_press:
-  #     then:
-  #       - climate.control:  # 동작하지 않음
-  #           id: Boiler_living_room
-  #           target_temperature: 10°C
-  #       - delay: 1s                
-  #       - climate.control:
-  #           id: Boiler_big_room
-  #           target_temperature: 10°C
-  #       - delay: 1s                
-  #       - climate.control:
-  #           id: Boiler_small_room
-  #           target_temperature: 10°C
-  #       - delay: 1s                
-  #       - climate.control:
-  #           id: Boiler_book_room
-  #           target_temperature: 10°C
-  #       - delay: 1s    
-  #       - climate.control:
-  #           id: Boiler_living_room
-  #           target_temperature: 10°C
-  #       - delay: 1s                
-  #       - climate.control:
-  #           id: Boiler_big_room
-  #           target_temperature: 10°C
-  #       - delay: 1s                
-  #       - climate.control:
-  #           id: Boiler_small_room
-  #           target_temperature: 10°C
-  #       - delay: 1s                
-  #       - climate.control:
-  #           id: Boiler_book_room
-  #           target_temperature: 10°C
-  #       - delay: 1s    
 # --------------- climate: ------------------------------------------     
 # switch: -------------------------------------------------------------
 # 
@@ -1329,9 +1453,7 @@ button:
 # 13,마지막 종료
 # 2025_0108_1535_24
 # =======================================    # 
-# file:///G:/ew11/information_%EC%A0%95%EB%B3%B4/Thermostat%20Protocol_(Thermostat)_231110_example.pdf
-# https://github.com/greays/esphome?tab=readme-ov-file
 # 기준으로 작성 횔용 수정 합니다
-# =====================================  2025_0216_1903_27
+# =====================================  2025_0112_0033_00
 
     
