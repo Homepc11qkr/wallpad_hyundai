@@ -11,7 +11,7 @@ github 정보 > external_components >
  
 # https://github.com/eigger/espcomponents/tree/master/packages/wallpad
  
-# https://github.com/Homepc11qkr/wallpad_hyundai/upload/main
+# https://github.com/Homepc11qkr/wallpad_hyundai
 
     external_components:
       - source: github://eigger/espcomponents/relreases/latest
