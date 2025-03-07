@@ -23,7 +23,12 @@ github 정보 > external_components >
 s:\esphome\485_ttl_esp32dev_ip84.yaml
 파일을 참조 바랍니다.
 
-업데이트 > 2025_0308_0136_05
+업데이트 > 2025_0308_0136_05 
+
+> s:\esphome\ttlto485_esp32_s3_m16_ip85.yaml
+
 https://cafe.naver.com/homestation/237
+
 https://11q.kr/www/bbs/board.php?bo_table=co3&wr_id=2823
+
 
