@@ -22,3 +22,8 @@ github 정보 > external_components >
 전체 esphome esp32 basic 제품과 ttl to 485 구성  yaml 파일은
 s:\esphome\485_ttl_esp32dev_ip84.yaml
 파일을 참조 바랍니다.
+
+업데이트 > 2025_0308_0136_05
+https://cafe.naver.com/homestation/237
+https://11q.kr/www/bbs/board.php?bo_table=co3&wr_id=2823
+
