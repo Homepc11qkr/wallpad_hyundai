@@ -1,0 +1,1606 @@
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "uIz5HM3Jrhl/BhxOvwdLP6W7+wdI99HAO3guKtvHtYE="
+
+ota:
+  - platform: esphome
+    password: "3fb0f20acbb125569e9356f954a0a8cb"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Enable fallback hotspot (captive portal) in case wifi connection fails  IP Address: 192.168.0.85
+  power_save_mode: LIGHT  
+  manual_ip:
+    static_ip: 192.168.0.85
+    gateway: 192.168.0.1
+    subnet: 255.255.255.0
+    dns1: 8.8.8.8
+    dns2: 8.8.4.4
+ 
+  ap:
+    ssid: "1-Esps3Ttl Fallback Hotspot"
+    password: "30CdMBE09ptH"
+
+ 
+substitutions:
+  name: "ttlto485s3-ip85"
+  friendly_name: "ttlto485_esp32_s3_m16_ip85"
+  device_descrnption: "esp32-s3-devkitc-m16_ttlto485_wallpad_ip85" 
+  
+# ======================================== 
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+    version: latest 
+#     # type: esp-idf  ## 에러
+#   # 플래시 사이즈 및 파티션 재 설정  
+#   flash_size: 8MB # 16MB
+#   partitions: "default_8MB.csv" # default_16MB.csv"      
+#   # build_flags:
+#   #   - -DCONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=160  # 160MHz로 설정
+   
+
+# # 확장 메모리 설정
+# psram:
+#   mode: octal
+#   speed: 80MHz  # 80MHz
+ 
+
+esphome:
+  name: ${name}
+  comment: ${device_descrnption}
+  friendly_name: ${friendly_name}
+
+ 
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+  - platform: sntp
+    id: sntp_time
+    timezone: Asia/Seoul
+
+ 
+logger:
+  level: DEBUG # INFO # DEBUG # INFO # 
+  # baud_rate: 0
+
+captive_portal:
+
+debug:
+  update_interval: 5s
+
+# ========================= ttl to 485 wallpad connection ========================== 
+#  github 정보 > external_components > 485 연결에 현대통신 월패드 스위치 보일러 센서 구성입니다
+    # https://cafe.naver.com/homestation/222
+    # https://github.com/eigger/espcomponents/tree/master/packages/wallpad
+    # https://github.com/Homepc11qkr/wallpad_hyundai/upload/main
+# ========================= ttl to 485 wallpad connection ========================== 
+
+external_components:
+  - source: github://eigger/espcomponents/relreases/latest
+    components: [ uartex ]
+    refresh: always  
+
+
+uart:
+  id: uart_0
+  tx_pin: GPIO43 # TX GPIO17
+  rx_pin: GPIO44 # RX GPIO18
+  baud_rate: 9600
+  stop_bits: 1
+  parity: NONE
+  data_bits: 8
+
+uartex:
+  rx_timeout: 10ms
+  tx_delay: 50ms
+  tx_timeout: 800ms
+  tx_retry_cnt: 3
+  rx_header: [0xf7]
+  rx_footer: [0xee]
+  tx_header: [0xf7]
+  tx_footer: [0xee]
+  rx_checksum: xor
+  tx_checksum: xor
+  version:
+    disabled: False
+  error:
+    disabled: False
+  log:
+    disabled: False
+
+binary_sensor:
+  - platform: status
+    name: "Connection Status"
+
+# # 여러 개의 바이너리 센서 정의
+# # binary_sensor:
+#   - platform: homeassistant
+#     id: boiler_book_room_sw
+#     entity_id: switch.ttlto485s3_ip85_boiler_book_room_sw
+#     on_state:
+#       then:
+#         - if:
+#             condition:
+#               or:
+#                 - binary_sensor.is_on: boiler_book_room_sw
+#                 - binary_sensor.is_on: boiler_big_room_sw
+#                 - binary_sensor.is_on: boiler_living_room_sw
+#                 - binary_sensor.is_on: boiler_small_room_sw
+#             then:
+#               - light.turn_on:
+#                   id: led_rgb_48
+#                   red: 50%
+#                   green: 50%
+#                   blue: 0%
+#                   brightness: 30%
+#             # else:
+#             #   - light.turn_off:
+#             #       id: led_rgb_48
+
+#   - platform: homeassistant
+#     id: boiler_big_room_sw
+#     entity_id: switch.ttlto485s3_ip85_boiler_big_room_sw
+
+#   - platform: homeassistant
+#     id: boiler_living_room_sw
+#     entity_id: switch.ttlto485s3_ip85_boiler_living_room_sw
+
+#   - platform: homeassistant
+#     id: boiler_small_room_sw
+#     entity_id: switch.ttlto485s3_ip85_boiler_small_room_sw
+
+
+# -----------------------------------------------------
+text_sensor:
+  - platform: template
+    id: wifi_connection_mac_txt2
+    name: "wifi_BSSID_name"            
+
+  - platform: copy
+    source_id: wifi_connection_mac
+    name: "wifi_connection_mac"
+    id: wifi_connection_mac_id
+    on_value:
+      - text_sensor.template.publish: # // 공유기의 mac과 상이하게 1뒷자리 는 상이하여 뒷자리 1개 제외
+          id: wifi_connection_mac_txt2
+          state: !lambda |-
+            static char buf[20];
+            std::string mac_str = id(wifi_connection_mac_id).state;
+            if (mac_str.rfind("58:86:94:2A:4C:", 0) == 0) {  
+                snprintf(buf, sizeof(buf), "AX8004M");
+            } else if (mac_str.rfind("58:86:94:88:E3:", 0) == 0) {
+                snprintf(buf, sizeof(buf), "A3-MU");
+            } else {
+                snprintf(buf, sizeof(buf), "Connecting,,");
+            }
+            return buf;
+ 
+  - platform: wifi_info
+    ip_address:
+      name: "wifi_ip_address"
+      id: ip_address_no
+    mac_address:
+      name: "wifi_mac_address"
+    ssid:
+      name: "wifi_SSID_name"
+ 
+    bssid:
+      name: "wifi_BSSID_mac"  # AP의 MAC 주소  sensor.wifi_bssid_4_inchi_esp32_ip56
+      id: wifi_connection_mac
+      
+  - platform: version
+    name: "Version_ESPHome"
+# -----------------------------------------------------
+  - platform: template
+    id: text_date_id
+    name: "Custom Date"
+    internal: true
+    update_interval: never  
+
+  - platform: template
+    id: text_time_id
+    name: "Custom Time"
+    internal: true
+    update_interval: never  
+
+  - platform: debug
+    device:
+      name: "Device Info"
+    reset_reason:
+      name: "Reset Reason"
+# ===========================
+
+sensor:
+
+  # - platform: uptime
+  #   name: 1_Uptime _Sensor
+  #   update_interval: 1s       
+  - platform: template
+    id: office_temperature # date_id
+    name: "Custom Date"
+    internal: true
+    update_interval: never
+
+  - platform: template
+    id: time_id
+    name: "Custom Time"
+    internal: true
+    update_interval: never
+ 
+  - platform: wifi_signal # Reports the WiFi signal strength/RSSI in dB
+    name: "WiFi_Signal_dB"
+    id: wifi_signal_db
+    update_interval: 30s
+    entity_category: "diagnostic"
+
+  - platform: copy # Reports the WiFi signal strength in %
+    source_id: wifi_signal_db
+    name: "WiFi Signal Percent"
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "Signal %"
+    entity_category: "diagnostic"
+    device_class: ""
+
+  - platform: template
+    name: "ESP CPU Frequency"
+    unit_of_measurement: "MHz"
+    accuracy_decimals: 0
+    lambda: |-
+      return ets_get_cpu_frequency();
+
+
+    #Device Memory
+  - platform: template
+    id: esp_memory
+    icon: mdi:memory
+    name: ESP Free Memory
+    lambda: return heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024;
+    unit_of_measurement: "kB"
+    state_class: measurement
+    entity_category: "diagnostic"
+
+    #Device Temperature
+  - platform: template
+    id: sys_esp_temperature
+    name: ESP Temperature
+    lambda: return temperatureRead();
+    unit_of_measurement: °C
+    device_class: TEMPERATURE
+    update_interval: 60s
+    #Device RSSI
+
+# sensor:
+  # boiler 온도센서 활성화
+  - platform: template
+    name: "Temperature_living_room"
+    id: Temperature_living_room
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(Boiler_living_room).current_temperature;
+    update_interval: 10s
+
+  - platform: template
+    name: "Temperature_big_room"
+    id: Temperature_big_room
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(Boiler_big_room).current_temperature;
+    update_interval: 10s
+ 
+  - platform: template
+    name: "Temperature_small_room"
+    id: Temperature_small_room
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(Boiler_small_room).current_temperature;
+    update_interval: 10s
+ 
+  - platform: template
+    name: "Temperature_book_room"
+    id: Temperature_book_room
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(Boiler_book_room).current_temperature;
+    update_interval: 10s
+
+
+#--------------------------------------------------------------------------
+# # UART 데이터 수신 및 LED 제어 자동화
+# automation:
+#   - trigger:
+#       platform: uart
+#       uart_id: uart_0
+#       data: "right on"
+#     action:
+#       - light.turn_on:
+#           id: led_rgb_48
+#           red: 0%
+#           green: 0%
+#           blue: 50%
+#           brightness: 30%
+#   - trigger:
+#       platform: uart
+#       uart_id: uart_0
+#       data: "right off"
+#     action:
+#       - light.turn_off:
+#           id: led_rgb_48      
+# LED 설정
+light:
+  - platform: esp32_rmt_led_strip
+    id: led_rgb_48
+    rgb_order: GRB
+    pin: GPIO48
+    num_leds: 30
+    rmt_channel: 0
+    chipset: ws2812
+    name: "led_rgb_light48"
+    default_transition_length: 0s
+    on_turn_on:
+      then:
+        - light.turn_on:
+            id: led_rgb_48
+            red: 0%
+            green: 0%
+            blue: 50%
+            brightness: 30%
+# LED 스트립 설정
+# light:
+#   - platform: esp32_rmt_led_strip
+#     id: led_rgb_48
+#     rgb_order: GRB
+#     pin: GPIO48
+#     num_leds: 30
+#     rmt_channel: 0
+#     chipset: ws2812
+#     name: "led_rgb_light48"
+#     default_transition_length: 0s
+
+
+ 
+# light:
+# -------------------------------------------------------------------------
+# 거실1 전등
+# 켜기 요청 F7 0B 01 19 02 40 11 01 00 B6 EE
+# 켜기 응답 F7 0B 01 19 04 40 11 01 01 B1 EE
+# 끄기 요청 F7 0B 01 19 02 40 11 02 00 B5 EE
+# 끄기 응답 F7 0B 01 19 04 40 11 02 02 B1 EE
+  - platform: uartex
+    name: "Light_living_room" # 거실불
+    id: living_room_a
+
+    state: 
+      data: [0x00, 0x01, 0x19, 0x04, 0x40, 0x11]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+
+    state_on:
+      offset: 7
+      data: [0x01]
+
+    state_off:
+      offset: 7
+      data: [0x02]
+
+    command_on:
+      data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x11, 0x01, 0x00]
+      ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x11, 0x01, 0x01] 
+
+    command_off:
+      data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x11, 0x02, 0x00]
+      ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x11, 0x02, 0x02]
+
+# -------------------------------------------------------------------------
+  - platform: uartex
+    name: "Light_living_room2" # 거실불2
+    id: livingroom2_a
+
+    state: 
+      data: [0x00, 0x01, 0x19, 0x04, 0x40, 0x12]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+
+    state_on:
+      offset: 7
+      data: [0x01]
+
+    state_off:
+      offset: 7
+      data: [0x02]
+
+    command_on:
+      data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x12, 0x01, 0x00]
+      ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x12, 0x01, 0x01]
+
+    command_off:
+      data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x12, 0x02, 0x00]
+      ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x12, 0x02, 0x02]
+
+# -------------------------------------------------------------------------
+  - platform: uartex
+    name: "Light_sofa" # 소파불
+    id: living_room_sofa_a
+
+    state: 
+      data: [0x00, 0x01, 0x19, 0x04, 0x40, 0x13]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+
+    state_on:
+      offset: 7
+      data: [0x01]
+      
+    state_off:
+      offset: 7
+      data: [0x02]
+
+    command_on:
+      data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x13, 0x01, 0x00]
+      ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x13, 0x01, 0x01]
+    command_off:
+      data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x13, 0x02, 0x00]
+      ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x13, 0x02, 0x02]
+
+# -------------------------------------------------------------------------
+  - platform: uartex
+    name: "Light_front" # 앞불
+    id: living_room_front_a
+
+    state: 
+      data: [0x00, 0x01, 0x19, 0x04, 0x40, 0x14]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+
+    state_on:
+      offset: 7
+      data: [0x01]
+      
+    state_off:
+      offset: 7
+      data: [0x02]
+
+    command_on:
+      data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x14, 0x01, 0x00]
+      ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x14, 0x01, 0x01]
+
+    command_off:
+      data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x14, 0x02, 0x00]
+      ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x14, 0x02, 0x02]
+
+# -------------------------------------------------------------------------
+  - platform: uartex
+    name: "Light_bogdo" # 복도불
+    id: living_room_bogdo_a
+
+    state: 
+      data: [0x00, 0x01, 0x19, 0x04, 0x40, 0x15]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+
+    state_on:
+      offset: 7
+      data: [0x01]
+      
+    state_off:
+      offset: 7
+      data: [0x02]
+
+    command_on:
+      data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x15, 0x01, 0x00]
+      ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x15, 0x01, 0x01]
+
+    command_off:
+      data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x15, 0x02, 0x00]
+      ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x15, 0x02, 0x02]
+
+# ===================== RS485 Climate  ====================================
+climate:
+
+# ---------  보일러 -------------
+# 거실 보일러
+# 켜기 요청 F7 0B 01 18 02 46 11 01 00 B1 EE
+# 켜기 응답 F7 0D 01 18 04 46 11 01 01 17 15 B2 EE
+# 끄기 요청 F7 0B 01 18 02 46 11 04 00 B4 EE
+# 끄기 응답 F7 0D 01 18 04 46 11 04 04 17 15 B2 EE
+# 7도  요청 F7 0B 01 18 02 45 11 07 00 B4 EE
+# 7도  응답 F7 0E 01 00 00 00 10 01 02 00 60 E9 FF
+# --------------- climate: ------------------------------------------
+
+  - platform: uartex
+    name: "Boiler_living_room"
+    id: Boiler_living_room
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: 
+      data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x11]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+
+    state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+      offset: 8
+      length: 1
+      precision: 0
+
+    state_temperature_target: #Required (설정온도 State)
+      offset: 9
+      length: 1
+      precision: 0
+
+    state_off: #Required (끄기 상태)
+      offset: 7
+      data: [0x04]
+
+    state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+      offset: 7
+      data: [0x01]
+
+    state_preset_away: #Option (외출모드)
+      offset: 7
+      data: [0x07]
+
+    state_preset_none:
+      offset: 7
+      data: [0x07]
+      inverted: True
+
+    command_off: #Required (끄기 명령)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x04, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x04, 0x04]
+
+    command_heat: #Option (난방모드 켜기)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+
+    command_preset_away: #Option (외출 켜기)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x07, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x07, 0x07]
+
+    command_preset_none: #Option (외출 끄기, 난방)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+
+    command_temperature: !lambda |-  #Required (온도 조절)
+      // @param: const float x
+      return {
+                {0x0B, 0x01, 0x18, 0x02, 0x45, 0x11, (uint8_t)x, 0x00},
+                {0x0D, 0x01, 0x18, 0x04, 0x45, 0x11, (uint8_t)x, 0x01}
+              };
+# --------------- climate: ------------------------------------------
+
+  - platform: uartex
+    name: "Boiler_big_room"
+    id: Boiler_big_room
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: 
+      data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x12]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+    state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+      offset: 8
+      length: 1
+      precision: 0
+    state_temperature_target: #Required (설정온도 State)
+      offset: 9
+      length: 1
+      precision: 0
+    state_off: #Required (끄기 상태)
+      offset: 7
+      data: [0x04]
+    state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+      offset: 7
+      data: [0x01]
+    state_preset_away: #Option (외출모드)
+      offset: 7
+      data: [0x07]
+    state_preset_none:
+      offset: 7
+      data: [0x07]
+      inverted: True
+    command_off: #Required (끄기 명령)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x12, 0x04, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x12, 0x04, 0x04]
+    command_heat: #Option (난방모드 켜기)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x12, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x12, 0x01, 0x01]
+    command_preset_away: #Option (외출 켜기)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x12, 0x07, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x12, 0x07, 0x07]
+    command_preset_none: #Option (외출 끄기, 난방)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x12, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x12, 0x01, 0x01]
+    command_temperature: !lambda |-  #Required (온도 조절)
+      // @param: const float x
+      return {
+                {0x0B, 0x01, 0x18, 0x02, 0x45, 0x12, (uint8_t)x, 0x00},
+                {0x0D, 0x01, 0x18, 0x04, 0x45, 0x12, (uint8_t)x, 0x01}
+              };
+# --------------- climate: ------------------------------------------
+
+  - platform: uartex
+    name: "Boiler_small_room"
+    id: Boiler_small_room
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: 
+      data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x13]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+    state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+      offset: 8
+      length: 1
+      precision: 0
+    state_temperature_target: #Required (설정온도 State)
+      offset: 9
+      length: 1
+      precision: 0
+    state_off: #Required (끄기 상태)
+      offset: 7
+      data: [0x04]
+    state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+      offset: 7
+      data: [0x01]
+    state_preset_away: #Option (외출모드)
+      offset: 7
+      data: [0x07]
+    state_preset_none:
+      offset: 7
+      data: [0x07]
+      inverted: True
+    command_off: #Required (끄기 명령)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x13, 0x04, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x13, 0x04, 0x04]
+    command_heat: #Option (난방모드 켜기)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x13, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x13, 0x01, 0x01]
+    command_preset_away: #Option (외출 켜기)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x13, 0x07, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x13, 0x07, 0x07]
+    command_preset_none: #Option (외출 끄기, 난방)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x13, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x13, 0x01, 0x01]
+    command_temperature: !lambda |-  #Required (온도 조절)
+      // @param: const float x
+      return {
+                {0x0B, 0x01, 0x18, 0x02, 0x45, 0x13, (uint8_t)x, 0x00},
+                {0x0D, 0x01, 0x18, 0x04, 0x45, 0x13, (uint8_t)x, 0x01}
+              };
+# --------------- climate: ------------------------------------------
+
+  - platform: uartex
+    name: "Boiler_book_room"
+    id: Boiler_book_room
+    visual:
+      min_temperature: 5 °C
+      max_temperature: 40 °C
+      temperature_step: 1 °C
+    state: 
+      data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x14]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+    state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
+      offset: 8
+      length: 1
+      precision: 0
+    state_temperature_target: #Required (설정온도 State)
+      offset: 9
+      length: 1
+      precision: 0
+    state_off: #Required (끄기 상태)
+      offset: 7
+      data: [0x04]
+    state_heat: #Option (난방모드, 냉방모드: state_cool, 자동모드: state_auto)
+      offset: 7
+      data: [0x01]
+    state_preset_away: #Option (외출모드)
+      offset: 7
+      data: [0x07]
+    state_preset_none:
+      offset: 7
+      data: [0x07]
+      inverted: True
+    command_off: #Required (끄기 명령)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x14, 0x04, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x14, 0x04, 0x04]
+    command_heat: #Option (난방모드 켜기)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x14, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x14, 0x01, 0x01]
+    command_preset_away: #Option (외출 켜기)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x14, 0x07, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x14, 0x07, 0x07]
+    command_preset_none: #Option (외출 끄기, 난방)
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x14, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x14, 0x01, 0x01]
+    command_temperature: !lambda |-  #Required (온도 조절)
+      // @param: const float x
+      return {
+                {0x0B, 0x01, 0x18, 0x02, 0x45, 0x14, (uint8_t)x, 0x00},
+                {0x0D, 0x01, 0x18, 0x04, 0x45, 0x14, (uint8_t)x, 0x01}
+              };
+# --------------- climate: ------------------------------------------              
+#--------------------------------------------------------------------------
+# switch:
+switch:
+  - platform: restart
+    id: Restart_Node_id
+    name: "Restart Node"
+    restore_mode: ALWAYS_OFF  # 부팅 시 항상 OFF 상태로 유지
+# ===============================================================================================
+  - platform: uartex
+    name: "Boiler_living_room_sw" # 거실불
+    id: Boiler_living_room_sw
+    state: 
+      data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x11]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+    state_on:
+      offset: 7
+      data: [0x01]
+    state_off:
+      offset: 7
+      data: [0x04]
+    command_on:
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+    command_off:
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x04, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x04, 0x04]
+# ===============================================================================================
+# ===============================================================================================
+  - platform: uartex
+    name: "Boiler_big_room_sw" # 안방불
+    id: Boiler_big_room_sw
+    state: 
+      data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x12]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+    state_on:
+      offset: 7
+      data: [0x01]
+    state_off:
+      offset: 7
+      data: [0x04]
+    command_on:
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x12, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x12, 0x01, 0x01]
+    command_off:
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x12, 0x04, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x12, 0x04, 0x04]
+# ===============================================================================================
+# ===============================================================================================
+  - platform: uartex
+    name: "Boiler_small_room_sw" # 작은방불
+    id: Boiler_small_room_sw
+    state: 
+      data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x13]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+    state_on:
+      offset: 7
+      data: [0x01]
+    state_off:
+      offset: 7
+      data: [0x04]
+    command_on:
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x13, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x14, 0x01, 0x01]
+    command_off:
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x13, 0x04, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x13, 0x04, 0x04]
+# ===============================================================================================
+
+# ===============================================================================================
+  - platform: uartex
+    name: "Boiler_book_room_sw" # 복도불
+    id: Boiler_book_room_sw
+    state: 
+      data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x14]
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+    state_on:
+      offset: 7
+      data: [0x01]
+    state_off:
+      offset: 7
+      data: [0x04]
+    command_on:
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x14, 0x01, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x14, 0x01, 0x01]
+    command_off:
+      data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x14, 0x04, 0x00]
+      ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x14, 0x04, 0x04]
+# ===============================================================================================
+
+# 보일러  climate 스위치 구성으로  All switch 구성 준비
+# =====================================switch==========================================================
+# ===============================================================================================
+button:
+  - platform: template
+    name: "Boiler_all_on_sw"
+    on_press:
+      then:
+        - switch.turn_on: Boiler_living_room_sw
+        - delay: 1s
+        - switch.turn_on: Boiler_big_room_sw
+        - delay: 1s
+        - switch.turn_on: Boiler_small_room_sw
+        - delay: 1s
+        - switch.turn_on: Boiler_book_room_sw
+        - delay: 1s
+        # error 대응 2번 실행 
+        - switch.turn_on: Boiler_living_room_sw
+        - delay: 1s
+        - switch.turn_on: Boiler_big_room_sw
+        - delay: 1s
+        - switch.turn_on: Boiler_small_room_sw
+        - delay: 1s
+        - switch.turn_on: Boiler_book_room_sw
+        - delay: 1s
+
+  - platform: template
+    name: "Boiler_all_off_sw"
+    on_press:
+      then:
+        - switch.turn_off: Boiler_living_room_sw
+        - delay: 1s
+        - switch.turn_off: Boiler_big_room_sw
+        - delay: 1s
+        - switch.turn_off: Boiler_small_room_sw
+        - delay: 1s
+        - switch.turn_off: Boiler_book_room_sw
+        - delay: 1s
+        - switch.turn_off: Boiler_living_room_sw
+        - delay: 1s
+        - switch.turn_off: Boiler_big_room_sw
+        - delay: 1s
+        - switch.turn_off: Boiler_small_room_sw
+        - delay: 1s
+        - switch.turn_off: Boiler_book_room_sw
+        - delay: 1s
+
+  - platform: template
+    name: "Light_all_on_sw"
+    on_press:
+      then:
+        - light.turn_on: living_room_a
+        - delay: 1s
+        - light.turn_on: livingroom2_a
+        - delay: 1s
+        - light.turn_on: living_room_sofa_a
+        - delay: 1s
+        - light.turn_on: living_room_front_a
+        - delay: 1s
+        - light.turn_on: living_room_bogdo_a
+        - delay: 1s
+        - light.turn_on: living_room_a
+        - delay: 1s
+        - light.turn_on: livingroom2_a
+        - delay: 1s
+        - light.turn_on: living_room_sofa_a
+        - delay: 1s
+        - light.turn_on: living_room_front_a
+        - delay: 1s
+        - light.turn_on: living_room_bogdo_a
+        - delay: 1s
+  - platform: template
+    name: "Light_all_off_sw"
+    on_press:
+      then:
+        - light.turn_off: living_room_a
+        - delay: 1s
+        - light.turn_off: livingroom2_a
+        - delay: 1s
+        - light.turn_off: living_room_sofa_a
+        - delay: 1s
+        - light.turn_off: living_room_front_a
+        - delay: 1s
+        - light.turn_off: living_room_bogdo_a
+        - delay: 1s
+        - light.turn_off: living_room_a
+        - delay: 1s
+        - light.turn_off: livingroom2_a
+        - delay: 1s
+        - light.turn_off: living_room_sofa_a
+        - delay: 1s
+        - light.turn_off: living_room_front_a
+        - delay: 1s
+        - light.turn_off: living_room_bogdo_a
+        - delay: 1s
+# ======================================================================
+    # command_heat: #Option (난방모드 켜기)
+    #   data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]
+    #   ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]
+# ===========button:=========================================================== 
+  - platform: template
+    name: "Boiler_all_off_Setting_c"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: "off"
+            # 2번실핼 에러대응
+        - climate.control:
+            id: Boiler_living_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: "off"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: "off"
+  - platform: template
+    name: "Boiler_all_heat_Setting_c"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: "Heat"
+          # 2번실핼 에러대응
+        - climate.control:
+            id: Boiler_living_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: "Heat"
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: "Heat"
+
+
+  - platform: template
+    name: "Boiler_all_on_uartex"
+    on_press:
+      then:
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]  # 거실 보일러 On
+            ack:  [0x0b, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]  # 거실 보일러 On
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x12, 0x01, 0x00]  # 큰방 보일러 On
+            ack:  [0x0b, 0x01, 0x18, 0x04, 0x46, 0x12, 0x01, 0x01]  # 큰방 보일러 On
+
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x13, 0x01, 0x00]  # 작은방 보일러 On
+            ack:  [0x0b, 0x01, 0x18, 0x04, 0x46, 0x13, 0x01, 0x01]  # 작은방 보일러 On
+
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x14, 0x01, 0x00]  # 서재방 보일러 On
+            ack:  [0x0b, 0x01, 0x18, 0x04, 0x46, 0x14, 0x01, 0x01]  # 서재방 보일러 On
+            #  한번더 명령을 2회실행하면 빠지는부분 해결 --------------------------------
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x11, 0x01, 0x00]  # 거실 보일러 On
+            ack:  [0x0b, 0x01, 0x18, 0x04, 0x46, 0x11, 0x01, 0x01]  # 거실 보일러 On
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x12, 0x01, 0x00]  # 큰방 보일러 On
+            ack:  [0x0b, 0x01, 0x18, 0x04, 0x46, 0x12, 0x01, 0x01]  # 큰방 보일러 On
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x13, 0x01, 0x00]  # 작은방 보일러 On
+            ack:  [0x0b, 0x01, 0x18, 0x04, 0x46, 0x13, 0x01, 0x01]  # 작은방 보일러 On
+
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x14, 0x01, 0x00]  # 서재방 보일러 On
+            ack:  [0x0b, 0x01, 0x18, 0x04, 0x46, 0x14, 0x01, 0x01]  # 서재방 보일러 On
+# 모든 보일러 OFF 모드 설정 스위치
+# 보일러를 꺼야 하는 경우에는 climate.control의 IDLE 모드 대신 RS485 패킷을 직접 보내는 방식이 더 적합합니다.
+# 아래는 모든 보일러를 OFF 상태로 설정하는 구성을 제공해 드립니다.
+# ===========button:===========================================================
+# command_off: #Required (끄기 명령)
+#   data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x04, 0x00]
+#   ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x04, 0x04]
+  - platform: template
+    name: "Boiler_all_off_uartex"
+    on_press:
+      then:
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x11, 0x04, 0x00]  # 거실 보일러 OFF
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x46, 0x11, 0x04, 0x04]   
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x12, 0x04, 0x00]  # 큰방 보일러 OFF
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x46, 0x12, 0x04, 0x04]   
+
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x13, 0x04, 0x00]  # 작은방 보일러 OFF
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x46, 0x13, 0x04, 0x04]   
+
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x14, 0x04, 0x00]  # 서재방 보일러 OFF
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x46, 0x14, 0x04, 0x04]   
+            #  한번더 명령을 2회실행하면 빠지는부분 해결 --------------------------------
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x11, 0x04, 0x00]  # 거실 보일러 OFF
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x46, 0x11, 0x04, 0x04]   
+            
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x12, 0x04, 0x00]  # 큰방 보일러 OFF
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x46, 0x12, 0x04, 0x04]   
+
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x13, 0x04, 0x00]  # 작은방 보일러 OFF
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x46, 0x13, 0x04, 0x04]   
+
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x46, 0x14, 0x04, 0x00]  # 서재방 보일러 OFF
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x46, 0x14, 0x04, 0x04]           
+# ===========button:===========================================================
+# 거실보일러	off요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x46,	0x11,	0x04,	0x00,	0xB4,	0xEE,	 	 
+# 거실보일러	off응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x46,	0x11,	0x04,	0x04,	0x14,	0x16,	0xB2,	0xEE,
+# 거실보일러	7	요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x45,	0x11,	0x07,	0x00,	0xB4,	0xEE,	 	 
+# 거실보일러	7	응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x45,	0x11,	0x07,	0x01,	0x14,	0x7,	0xA6,	0xEE,
+# 거실보일러	8	요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x45,	0x11,	0x08,	0x00,	0xBB,	0xEE,	 	 
+# 거실보일러	8	응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x45,	0x11,	0x08,	0x01,	0x14,	0x8,	0xA6,	0xEE,
+# ===========button:===========================================================
+# 보일러 온도설정
+# --------------------------------  
+# button:
+  
+  - platform: template
+    name: "8_°C_All_Setting_u"
+    on_press:
+      then:
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x08, 0x00]  # 거실 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x08, 0x00]  # 안방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x08, 0x00]  # 작은방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x08, 0x00]  # 서재방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x11, 0x08, 0x00]  # 거실 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x11, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x12, 0x08, 0x00]  # 안방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x12, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x13, 0x08, 0x00]  # 작은방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x13, 0x08, 0x01]
+        - delay: 1s
+        - uartex.write:
+            data: [0x0b, 0x01, 0x18, 0x02, 0x45, 0x14, 0x08, 0x00]  # 서재방 보일러 20°C 설정
+            ack: [0x0d, 0x01, 0x18, 0x04, 0x45, 0x14, 0x08, 0x01]
+        - delay: 1s       
+# ===========button:===========================================================
+
+  - platform: template
+    name: "11_°C_All_Setting"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 11°C
+        - delay: 1s  
+   
+  - platform: template
+    name: "20_°C_All_Setting"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+            # 에러대응 2번 실행
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 20°C
+        - delay: 1s  
+   
+  # ===========button:===========================================================
+   
+  
+  - platform: template
+    name: "21_°C_All_Setting"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        # 에러대응 2번 실행
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 21°C
+        - delay: 1s       
+  
+  - platform: template
+    name: "22_°C_All_Setting"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+            # 에러대응 2번 실행
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 22°C
+        - delay: 1s 
+                
+  
+  - platform: template
+    name: "23_°C_All_Setting"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+            # 에러대응 2번 실행
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 23°C
+        - delay: 1s      
+  
+  - platform: template
+    name: "24_°C_All_Setting"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+            # 에러대응 2번 실행
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 24°C
+        - delay: 1s  
+  
+  - platform: template
+    name: "25_°C_All_Setting"
+    on_press:
+      then:
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        #  2번 실행으로 에러 대응
+        - delay: 1s    
+        - climate.control:
+            id: Boiler_living_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_big_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_small_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s                
+        - climate.control:
+            id: Boiler_book_room
+            mode: HEAT_COOL
+            target_temperature: 25°C
+        - delay: 1s  
+#  2025_0216_2206_08
+
+# --------------- climate: ------------------------------------------     
+# switch: -------------------------------------------------------------
+# 
+# ============================================
+# sensor:  # 20231226_1230_55
+# backlight   20240110_1154_28
+# ===============================
+# 20231225_0022_52
+# (구 현대 월패드 정보)
+# ----전등--------
+# 거실1 전등
+# 켜기 요청 F7 0B 01 19 02 40 11 01 00 B6 EE
+# 켜기 응답 F7 0B 01 19 04 40 11 01 01 B1 EE
+# 끄기 요청 F7 0B 01 19 02 40 11 02 00 B5 EE
+# 끄기 응답 F7 0B 01 19 04 40 11 02 02 B1 EE
+# ​
+# 거실2 전등 
+# 켜기 요청 F7 0B 01 19 02 40 12 01 00 B5 EE
+# 켜기 응답 F7 0B 01 19 04 40 12 01 01 B2 EE
+# 끄기 요청 F7 0B 01 19 02 40 12 02 00 B6 EE
+# 끄기 응답 F7 0B 01 19 04 40 12 02 02 B2 EE
+# ​
+# 소파3 전등 
+# 켜기 요청 F7 0B 01 19 02 40 13 01 00 B4 EE
+# 켜기 응답 F7 0B 01 19 04 40 13 01 01 B3 EE
+# 끄기 요청 F7 0B 01 19 02 40 13 02 00 B7 EE
+# 끄기 응답 F7 0B 01 19 04 40 13 02 02 B3 EE
+# ​
+# 앞불4 전등 
+# 켜기 요청 F7 0B 01 19 02 40 14 01 00 B3 EE
+# 켜기 응답 F7 0B 01 19 04 40 14 01 01 B4 EE
+# 끄기 요청 F7 0B 01 19 02 40 14 02 00 B0 EE
+# 끄기 응답 F7 0B 01 19 04 40 14 02 02 B4 EE
+# ​
+# 복도5 전등
+# 켜기 요청 F7 0B 01 19 02 40 15 01 00 B2 EE
+# 켜기 응답 F7 0B 01 19 04 40 15 01 01 B5 EE
+# 끄기 요청 F7 0B 01 19 02 40 15 02 00 B1 EE
+# 끄기 응답 F7 0B 01 19 04 40 15 02 02 B5 EE
+# --------------------------------------------------
+# ---------  보일러 -------------
+# 거실 보일러
+# 켜기 요청 F7 0B 01 18 02 46 11 01 00 B1 EE
+# 켜기 응답 F7 0D 01 18 04 46 11 01 01 17 15 B2 EE
+# 끄기 요청 F7 0B 01 18 02 46 11 04 00 B4 EE
+# 끄기 응답 F7 0D 01 18 04 46 11 04 04 17 15 B2 EE
+# 7도  요청 F7 0B 01 18 02 45 11 07 00 B4 EE
+# 7도  응답 F7 0E 01 00 00 00 10 01 02 00 60 E9 FF
+# ---------------
+# 안방 보일러
+# 켜기 요청 F7 0B 01 18 02 46 12 01 00 B2 EE
+# 켜기 응답 F7 0D 01 18 04 46 12 01 01 17 0F AB EE
+# 끄기 요청 F7 0B 01 18 02 46 12 04 00 B7 EE
+# 끄기 응답 F7 0D 01 18 04 46 12 04 04 17 0F AB EE
+# 7도  요청 F7 0B 01 18 02 45 12 07 00 B7 EE
+# 7도  응답 F7 0D 01 18 04 45 12 07 01 17 07 A6 EE
+# ---------
+# 작은방 보일러
+# 켜기 요청 F7 0B 01 18 02 46 13 01 00 B3 EE
+# 켜기 응답 F7 0D 01 18 04 46 13 01 01 16 07 A3 EE
+# 끄기 요청 F7 0B 01 18 02 46 13 04 00 B6 EE
+# 끄기 응답 F7 0D 01 18 04 46 13 04 04 16 07 A3 EE
+# 7도  요청 F7 0B 01 18 02 45 13 07 00 B6 EE
+# 7도  응답 F7 0D 01 18 04 45 13 07 01 16 07 A6 EE
+# ---------
+# 서재 보일러
+# 켜기 요청 F7 0B 01 18 02 46 14 01 00 B4 EE
+# 켜기 응답 F7 0D 01 18 04 46 14 01 01 16 07 A4 EE
+# 끄기 요청 F7 0B 01 18 02 46 14 04 00 B1 EE
+# 끄기 응답 0D 01 18 04 46 14 04 04 16 07 A4 EE
+# 7도  요청 F7 0B 01 18 02 45 14 07 00 B1 EE
+# 7도  응답 F7 0D 01 18 04 45 14 07 01 16 07 A1 EE
+# =========================== 변환 ==========================
+# 거실1전등	on	요청		0xF7,	0x0b,	0x01,	0x19,	0x02,	0x40,	0x11,	0x01,	0x00,	0xB6,	0xEE,	 	 
+# 거실1전등	on	응답		0xF7,	0x0b,	0x01,	0x19,	0x04,	0x40,	0x11,	0x01,	0x01,	0xB1,	0xEE,	 	 
+# 거실1전등	off	요청		0xF7,	0x0b,	0x01,	0x19,	0x02,	0x40,	0x11,	0x02,	0x00,	0xB5,	0xEE,	 	 
+# 거실1전등	off	응답		0xF7,	0x0b,	0x01,	0x19,	0x04,	0x40,	0x11,	0x02,	0x02,	0xB1,	0xEE,	 	 
+
+# 거실2전등	on	요청		0xF7,	0x0b,	0x01,	0x19,	0x02,	0x40,	0x12,	0x01,	0x00,	0xB5,	0xEE,	 	 
+# 거실2전등	on	응답		0xF7,	0x0b,	0x01,	0x19,	0x04,	0x40,	0x12,	0x01,	0x01,	0xB2,	0xEE,	 	 
+# 거실2전등	off	요청		0xF7,	0x0b,	0x01,	0x19,	0x02,	0x40,	0x12,	0x02,	0x00,	0xB6,	0xEE,	 	 
+# 거실2전등	off	응답		0xF7,	0x0b,	0x01,	0x19,	0x04,	0x40,	0x12,	0x02,	0x02,	0xB2,	0xEE,	 	 
+
+# 소파3전등	on	요청		0xF7,	0x0b,	0x01,	0x19,	0x02,	0x40,	0x13,	0x01,	0x00,	0xB4,	0xEE,	 	 
+# 소파3전등	on	응답		0xF7,	0x0b,	0x01,	0x19,	0x04,	0x40,	0x13,	0x01,	0x01,	0xB3,	0xEE,	 	 
+# 소파3전등	off	요청		0xF7,	0x0b,	0x01,	0x19,	0x02,	0x40,	0x13,	0x02,	0x00,	0xB7,	0xEE,	 	 
+# 소파3전등	off	응답		0xF7,	0x0b,	0x01,	0x19,	0x04,	0x40,	0x13,	0x02,	0x02,	0xB3,	0xEE,	 	 
+
+# 앞불4전등	on	요청		0xF7,	0x0b,	0x01,	0x19,	0x02,	0x40,	0x14,	0x01,	0x00,	0xB3,	0xEE,	 	 
+# 앞불4전등	on	응답		0xF7,	0x0b,	0x01,	0x19,	0x04,	0x40,	0x14,	0x01,	0x01,	0xB4,	0xEE,	 	 
+# 앞불4전등	off	요청		0xF7,	0x0b,	0x01,	0x19,	0x02,	0x40,	0x14,	0x02,	0x00,	0xB0,	0xEE,	 	 
+# 앞불4전등	off	응답		0xF7,	0x0b,	0x01,	0x19,	0x04,	0x40,	0x14,	0x02,	0x02,	0xB4,	0xEE,	 	 
+
+# 복도등	on	요청		0xF7,	0x0b,	0x01,	0x19,	0x02,	0x40,	0x15,	0x01,	0x00,	0xB2,	0xEE,	 	 
+# 복도등	on	응답		0xF7,	0x0b,	0x01,	0x19,	0x04,	0x40,	0x15,	0x01,	0x01,	0xB5,	0xEE,	 	 
+# 복도등	off	요청		0xF7,	0x0b,	0x01,	0x19,	0x02,	0x40,	0x15,	0x02,	0x00,	0xB1,	0xEE,	 	 
+# 복도등	off	응답		0xF7,	0x0b,	0x01,	0x19,	0x04,	0x40,	0x15,	0x02,	0x02,	0xB5,	0xEE,	 	 
+#---------------------------------------------
+# 거실보일러	off요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x46,	0x11,	0x04,	0x00,	0xB4,	0xEE,	 	 
+# 거실보일러	off응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x46,	0x11,	0x04,	0x04,	0x14,	0x16,	0xB2,	0xEE,
+# 거실보일러	7	요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x45,	0x11,	0x07,	0x00,	0xB4,	0xEE,	 	 
+# 거실보일러	7	응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x45,	0x11,	0x07,	0x01,	0x14,	0x7,	0xA6,	0xEE,
+# 거실보일러	8	요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x45,	0x11,	0x08,	0x00,	0xBB,	0xEE,	 	 
+# 거실보일러	8	응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x45,	0x11,	0x08,	0x01,	0x14,	0x8,	0xA6,	0xEE,
+
+# 안방보일러	on요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x46,	0x12,	0x01,	0x00,	0xB2,	0xEE,	 	 
+# 안방보일러	on응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x46,	0x12,	0x01,	0x01,	0x15,	0x16,	0xB0,	0xEE,
+# 안방보일러	off요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x46,	0x12,	0x04,	0x00,	0xB7,	0xEE,	 	 
+# 안방보일러	off응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x46,	0x12,	0x04,	0x04,	0x15,	0x16,	0xB0,	0xEE,
+# 안방보일러	7	요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x45,	0x12,	0x07,	0x00,	0xB7,	0xEE,	 	 
+# 안방보일러	7	응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x45,	0x12,	0x07,	0x01,	0x15,	0x7,	0xA4,	0xEE,
+# 안방보일러	8	요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x45,	0x12,	0x08,	0x00,	0xB8,	0xEE,	 	 
+# 안방보일러	8	응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x45,	0x12,	0x08,	0x01,	0x15,	0x8,	0xA4,	0xEE,
+
+# 작은방보일러	on요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x46,	0x13,	0x01,	0x00,	0xB3,	0xEE,	 	 
+# 작은방보일러	on응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x46,	0x13,	0x01,	0x01,	0x13,	0x16,	0xB7,	0xEE,
+# 작은방보일러	off요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x46,	0x13,	0x04,	0x00,	0xB6,	0xEE,	 	 
+# 작은방보일러	off응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x46,	0x13,	0x04,	0x04,	0x13,	0x16,	0xB7,	0xEE,
+# 작은방보일러	7	요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x45,	0x13,	0x07,	0x00,	0xB6,	0xEE,	 	 
+# 작은방보일러	7	응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x45,	0x13,	0x07,	0x01,	0x13,	0x7,	0xA3,	0xEE,
+# 작은방보일러	8	요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x45,	0x13,	0x08,	0x00,	0xB9,	0xEE,	 	 
+# 작은방보일러	8	응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x45,	0x13,	0x08,	0x01,	0x13,	0x8,	0xA3,	0xEE,
+
+# 서재보일러	on요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x46,	0x14,	0x01,	0x00,	0xB4,	0xEE,	 	 
+# 서재보일러	on응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x46,	0x14,	0x01,	0x01,	0x17,	0x17,	0xB5,	0xEE,
+# 서재보일러	off요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x46,	0x14,	0x04,	0x00,	0xB1,	0xEE,	 	 
+# 서재보일러	off응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x46,	0x14,	0x04,	0x04,	0x17,	0x17,	0xB5,	0xEE,
+# 서재보일러	7	요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x45,	0x14,	0x07,	0x00,	0xB1,	0xEE,	 	 
+# 서재보일러	7	응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x45,	0x14,	0x07,	0x01,	0x17,	0x7,	0xA0,	0xEE,
+# 서재보일러	8	요청		0xF7,	0x0b,	0x01,	0x18,	0x02,	0x45,	0x14,	0x08,	0x00,	0xBE,	0xEE,	 	 
+# 서재보일러	8	응답		0xF7,	0x0d,	0x01,	0x18,	0x04,	0x45,	0x14,	0x08,	0x01,	0x17,	0x8,	0xA0,	0xEE,
+#---------------------------------------------
+ 
+# 패킷정보 1,2,3,4,5,6,,7,8,9,10,11,12,13 의 정보
+# 1,시작 패킷
+# 2,조명 패킷은 명령/응답 모두 0b와 보일러 명령0b 응답0d 
+# 3,패킷의길이(설치된 조명개수 +10)
+# 4, 패킷의길이(설치된 조명개수 +10)
+# 5,명령패킷 2,응답패킷4
+# 6,전등40,보일러45 46
+# 7,방번호/장소(방+조명위치) 11,12,13,14,15
+# 8,on/off(01:on,02:off) or 온도
+# 9,요청(00),켜기응답(01),끄기응답(02)
+# 10,xor의 checksum
+# 11,마지막 종료
+# 12,xor의 checksum
+# 13,마지막 종료
+# 2025_0108_1535_24
+# =======================================    # 
+# 기준으로 작성 횔용 수정 합니다
+# =====================================  2025_0112_0033_00
+
+            
