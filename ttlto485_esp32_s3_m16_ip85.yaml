@@ -1,4 +1,3 @@
-
 # Enable Home Assistant API
 api:
   encryption:
@@ -8,23 +7,26 @@ ota:
   - platform: esphome
     password: "3fb0f20acbb125569e9356f954a0a8cb"
 
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  # Enable fallback hotspot (captive portal) in case wifi connection fails  IP Address: 192.168.0.85
-  power_save_mode: LIGHT  
-  manual_ip:
-    static_ip: 192.168.0.85
-    gateway: 192.168.0.1
-    subnet: 255.255.255.0
-    dns1: 8.8.8.8
-    dns2: 8.8.4.4
- 
-  ap:
-    ssid: "1-Esps3Ttl Fallback Hotspot"
-    password: "30CdMBE09ptH"
 
- 
+
+
+wifi:
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+      # bssid: "58:86:94:2A:4C:6C" # AX8004M 58:86:94:2A:4C:6C
+      bssid: "58:86:94:88:E3:70" # A3-MU  58:86:94:88:E3:70
+      manual_ip:
+        static_ip: 192.168.0.85
+        gateway: 192.168.0.1
+        subnet: 255.255.255.0
+        dns1: 8.8.8.8
+        dns2: 8.8.4.4
+  ap:
+    ssid: "Fallback_AP"
+    password: "fallback_password"
+
+
 substitutions:
   name: "ttlto485s3-ip85"
   friendly_name: "ttlto485_esp32_s3_m16_ip85"
@@ -34,9 +36,11 @@ substitutions:
 
 esp32:
   board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 16MB  
   framework:
     type: arduino
-    version: latest 
+    # version: latest 
 #     # type: esp-idf  ## 에러
 #   # 플래시 사이즈 및 파티션 재 설정  
 #   flash_size: 8MB # 16MB
@@ -46,21 +50,22 @@ esp32:
    
 
 # # 확장 메모리 설정
-# psram:
-#   mode: octal
-#   speed: 80MHz  # 80MHz
+psram:
+  mode: octal
+  speed: 80MHz  # 80MHz
  
 
 esphome:
   name: ${name}
   comment: ${device_descrnption}
   friendly_name: ${friendly_name}
-
+#  ###########################
  
-
+     
 time:
   - platform: homeassistant
     id: homeassistant_time
+
   - platform: sntp
     id: sntp_time
     timezone: Asia/Seoul
@@ -72,21 +77,23 @@ logger:
 
 captive_portal:
 
+ 
 debug:
-  update_interval: 5s
+  update_interval: 3s
 
 # ========================= ttl to 485 wallpad connection ========================== 
 #  github 정보 > external_components > 485 연결에 현대통신 월패드 스위치 보일러 센서 구성입니다
     # https://cafe.naver.com/homestation/222
     # https://github.com/eigger/espcomponents/tree/master/packages/wallpad
     # https://github.com/Homepc11qkr/wallpad_hyundai/upload/main
+    # https://cafe.naver.com/stsmarthome/99913
 # ========================= ttl to 485 wallpad connection ========================== 
 
 external_components:
-  - source: github://eigger/espcomponents/relreases/latest
+  # - source: github://eigger/espcomponents/relreases/latest
+  - source: github://eigger/espcomponents@v250312
     components: [ uartex ]
     refresh: always  
-
 
 uart:
   id: uart_0
@@ -97,11 +104,77 @@ uart:
   parity: NONE
   data_bits: 8
 
+ 
+
+interval:
+  - id: interval_update
+    interval: 5000ms  # 초기값 (5초)
+    then:
+      - if:
+          condition:
+            switch.is_on: interval_uart_sw
+          then:
+            - delay: 1s
+            - uartex.write:
+                data: [0x0B, 0x01, 0x18, 0x01, 0x46, 0x11, 0x00, 0x00]
+            - delay: 1s
+            - uartex.write:
+                data: [0x0B, 0x01, 0x18, 0x01, 0x46, 0x12, 0x00, 0x00]
+            - delay: 1s
+            - uartex.write:
+                data: [0x0B, 0x01, 0x18, 0x01, 0x46, 0x13, 0x00, 0x00]
+            - delay: 1s
+            - uartex.write:
+                data: [0x0B, 0x01, 0x18, 0x01, 0x46, 0x14, 0x00, 0x00]
+            - delay: 1s
+            - uartex.write:
+                data: [0x0B, 0x01, 0x19, 0x01, 0x40, 0x11, 0x00, 0x00]
+            - delay: 1s
+            - uartex.write:
+                data: [0x0B, 0x01, 0x19, 0x01, 0x40, 0x12, 0x00, 0x00]
+            - delay: 1s
+            - uartex.write:
+                data: [0x0B, 0x01, 0x19, 0x01, 0x40, 0x13, 0x00, 0x00]
+            - delay: 1s
+            - uartex.write:
+                data: [0x0B, 0x01, 0x19, 0x01, 0x40, 0x14, 0x00, 0x00]
+            - delay: 1s
+            - uartex.write:
+                data: [0x0B, 0x01, 0x19, 0x01, 0x40, 0x15, 0x00, 0x00]
+
+#  참조 패킷
+# [15:22:26][D][text_sensor:064]: 'Log': Sending state '[W]F70B01180146110000B3EEEEEE(13)'
+# [15:22:26][D][text_sensor:064]: 'Log': Sending state '[R]F70D011804461100041714B7EE(13)'
+
+# [15:22:22][D][text_sensor:064]: 'Log': Sending state '[W]F70B01180146120000B0EEEEEE(13)'
+# [15:22:22][D][text_sensor:064]: 'Log': Sending state '[R]F70D011804461200041714B4EE(13)'
+
+# [15:22:13][D][text_sensor:064]: 'Log': Sending state '[W]F70B01180146130000B1EEEEEE(13)'
+# [15:22:13][D][text_sensor:064]: 'Log': Sending state '[R]F70D011804461300041614B4EE(13)'     
+
+# [15:22:09][D][text_sensor:064]: 'Log': Sending state '[W]F70B01180146140000B6EEEEEE(13)'
+# [15:22:09][D][text_sensor:064]: 'Log': Sending state '[R]F70D011804461400011714B7EE(13)'
+# # -------------------------------------- 정상 동작 상태 반영
+  
+#  참조 패킷  --> 주)  우리집 전등 스위치가 문제인지 반영 안됨 
+# # [15:23:16][D][text_sensor:064]: 'Log': Sending state '[R]F70B01190140110000B4EE(11)'  확인후
+# # [15:23:16][D][text_sensor:064]: 'Log': Sending state '[R]F70B01190440110002B3EE(11)'  상태값
+# # [15:23:20][D][text_sensor:064]: 'Log': Sending state '[R]F70B01190140120000B7EE(11)'
+# # [15:23:20][D][text_sensor:064]: 'Log': Sending state '[R]F70B01190440120002B0EE(11)'
+# # [15:23:35][D][text_sensor:064]: 'Log': Sending state '[R]F70B01190140130000B6EE(11)'
+# # [15:23:36][D][text_sensor:064]: 'Log': Sending state '[R]F70B01190440130002B1EE(11)
+# # [15:23:36][D][text_sensor:064]: 'Log': Sending state '[R]F70B01190140140000B1EE(11)'
+# # [15:23:36][D][text_sensor:064]: 'Log': Sending state '[R]F70B01190440140002B6EE(11)'
+# # [15:22:08][D][text_sensor:064]: 'Log': Sending state '[R]F70B01190140150000B0EE(11)'
+# # [15:22:08][D][text_sensor:064]: 'Log': Sending state '[R]F70B01190440150002B7EE(11)'
+# # -------------------------------------------------------------------------
+
+
 uartex:
   rx_timeout: 10ms
   tx_delay: 50ms
   tx_timeout: 800ms
-  tx_retry_cnt: 3
+  tx_retry_cnt: 5  #3
   rx_header: [0xf7]
   rx_footer: [0xee]
   tx_header: [0xf7]
@@ -119,84 +192,43 @@ binary_sensor:
   - platform: status
     name: "Connection Status"
 
-# # 여러 개의 바이너리 센서 정의
-# # binary_sensor:
-#   - platform: homeassistant
-#     id: boiler_book_room_sw
-#     entity_id: switch.ttlto485s3_ip85_boiler_book_room_sw
-#     on_state:
-#       then:
-#         - if:
-#             condition:
-#               or:
-#                 - binary_sensor.is_on: boiler_book_room_sw
-#                 - binary_sensor.is_on: boiler_big_room_sw
-#                 - binary_sensor.is_on: boiler_living_room_sw
-#                 - binary_sensor.is_on: boiler_small_room_sw
-#             then:
-#               - light.turn_on:
-#                   id: led_rgb_48
-#                   red: 50%
-#                   green: 50%
-#                   blue: 0%
-#                   brightness: 30%
-#             # else:
-#             #   - light.turn_off:
-#             #       id: led_rgb_48
-
-#   - platform: homeassistant
-#     id: boiler_big_room_sw
-#     entity_id: switch.ttlto485s3_ip85_boiler_big_room_sw
-
-#   - platform: homeassistant
-#     id: boiler_living_room_sw
-#     entity_id: switch.ttlto485s3_ip85_boiler_living_room_sw
-
-#   - platform: homeassistant
-#     id: boiler_small_room_sw
-#     entity_id: switch.ttlto485s3_ip85_boiler_small_room_sw
-
-
 # -----------------------------------------------------
-text_sensor:
-  - platform: template
-    id: wifi_connection_mac_txt2
-    name: "wifi_BSSID_name"            
 
-  - platform: copy
-    source_id: wifi_connection_mac
-    name: "wifi_connection_mac"
-    id: wifi_connection_mac_id
-    on_value:
-      - text_sensor.template.publish: # // 공유기의 mac과 상이하게 1뒷자리 는 상이하여 뒷자리 1개 제외
-          id: wifi_connection_mac_txt2
-          state: !lambda |-
-            static char buf[20];
-            std::string mac_str = id(wifi_connection_mac_id).state;
-            if (mac_str.rfind("58:86:94:2A:4C:", 0) == 0) {  
-                snprintf(buf, sizeof(buf), "AX8004M");
-            } else if (mac_str.rfind("58:86:94:88:E3:", 0) == 0) {
-                snprintf(buf, sizeof(buf), "A3-MU");
-            } else {
-                snprintf(buf, sizeof(buf), "Connecting,,");
-            }
-            return buf;
- 
+
+
+text_sensor:
+  - platform: version
+    name: "ESPHome Version"
   - platform: wifi_info
     ip_address:
-      name: "wifi_ip_address"
+      name: "WiFi IP Address"
       id: ip_address_no
     mac_address:
-      name: "wifi_mac_address"
+      name: "Device MAC Address"
     ssid:
-      name: "wifi_SSID_name"
- 
+      name: "WiFi SSID"
     bssid:
-      name: "wifi_BSSID_mac"  # AP의 MAC 주소  sensor.wifi_bssid_4_inchi_esp32_ip56
-      id: wifi_connection_mac
-      
-  - platform: version
-    name: "Version_ESPHome"
+      name: "WiFi BSSID"
+      id: wifi_bssid
+
+  - platform: template
+    id: wifi_bssid_name
+    name: "WiFi BSSID Name"
+    update_interval: 60s
+    lambda: |-
+      static char buf[20];
+      std::string mac_str = id(wifi_bssid).state;
+      for (auto & c : mac_str) c = toupper(c);
+      if (mac_str.rfind("58:86:94:2A:4C:", 0) == 0) {
+          snprintf(buf, sizeof(buf), "AX8004M");
+      } else if (mac_str.rfind("58:86:94:88:E3:", 0) == 0) {
+          snprintf(buf, sizeof(buf), "A3-MU");
+      } else {
+          snprintf(buf, sizeof(buf), "Connecting...");
+      }
+      return std::string(buf); // # 수정: buf를 std::string으로 변환
+  # --------------------------------------
+ 
 # -----------------------------------------------------
   - platform: template
     id: text_date_id
@@ -215,10 +247,33 @@ text_sensor:
       name: "Device Info"
     reset_reason:
       name: "Reset Reason"
-# ===========================
+# =========================== 88888888888888888888888888
+
+
+
+
+##########  9999999999999999999999999999999999999999
+
 
 sensor:
+ 
+# --------------------------------------------
+# sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal dBm"
+    id: wifi_signal_dbm
+    update_interval: 60s
+  
+  - platform: template
+    id: wifi_signal_percent
+    name: "WiFi Signal Percent"
+    unit_of_measurement: "%"
+    device_class: "signal_strength"
+    update_interval: 60s
+    lambda: |-
+      return min(max(2 * (id(wifi_signal_dbm).state + 100.0), 0.0), 100.0);
 
+ 
   # - platform: uptime
   #   name: 1_Uptime _Sensor
   #   update_interval: 1s       
@@ -234,28 +289,14 @@ sensor:
     internal: true
     update_interval: never
  
-  - platform: wifi_signal # Reports the WiFi signal strength/RSSI in dB
-    name: "WiFi_Signal_dB"
-    id: wifi_signal_db
-    update_interval: 30s
-    entity_category: "diagnostic"
-
-  - platform: copy # Reports the WiFi signal strength in %
-    source_id: wifi_signal_db
-    name: "WiFi Signal Percent"
-    filters:
-      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
-    unit_of_measurement: "Signal %"
-    entity_category: "diagnostic"
-    device_class: ""
 
   - platform: template
     name: "ESP CPU Frequency"
     unit_of_measurement: "MHz"
-    accuracy_decimals: 0
+    accuracy_decimals: 1
     lambda: |-
       return ets_get_cpu_frequency();
-
+       
 
     #Device Memory
   - platform: template
@@ -271,11 +312,12 @@ sensor:
   - platform: template
     id: sys_esp_temperature
     name: ESP Temperature
-    lambda: return temperatureRead();
-    unit_of_measurement: °C
-    device_class: TEMPERATURE
+    lambda: return temperatureRead() / 4.2;
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
     update_interval: 60s
-    #Device RSSI
 
 # sensor:
   # boiler 온도센서 활성화
@@ -283,7 +325,7 @@ sensor:
     name: "Temperature_living_room"
     id: Temperature_living_room
     unit_of_measurement: "°C"
-    accuracy_decimals: 0
+    accuracy_decimals: 1
     lambda: |-
       return id(Boiler_living_room).current_temperature;
     update_interval: 10s
@@ -292,7 +334,7 @@ sensor:
     name: "Temperature_big_room"
     id: Temperature_big_room
     unit_of_measurement: "°C"
-    accuracy_decimals: 0
+    accuracy_decimals: 1
     lambda: |-
       return id(Boiler_big_room).current_temperature;
     update_interval: 10s
@@ -301,7 +343,7 @@ sensor:
     name: "Temperature_small_room"
     id: Temperature_small_room
     unit_of_measurement: "°C"
-    accuracy_decimals: 0
+    accuracy_decimals: 1
     lambda: |-
       return id(Boiler_small_room).current_temperature;
     update_interval: 10s
@@ -310,35 +352,16 @@ sensor:
     name: "Temperature_book_room"
     id: Temperature_book_room
     unit_of_measurement: "°C"
-    accuracy_decimals: 0
+    accuracy_decimals: 1
     lambda: |-
       return id(Boiler_book_room).current_temperature;
     update_interval: 10s
 
+ 
 
-#--------------------------------------------------------------------------
-# # UART 데이터 수신 및 LED 제어 자동화
-# automation:
-#   - trigger:
-#       platform: uart
-#       uart_id: uart_0
-#       data: "right on"
-#     action:
-#       - light.turn_on:
-#           id: led_rgb_48
-#           red: 0%
-#           green: 0%
-#           blue: 50%
-#           brightness: 30%
-#   - trigger:
-#       platform: uart
-#       uart_id: uart_0
-#       data: "right off"
-#     action:
-#       - light.turn_off:
-#           id: led_rgb_48      
-# LED 설정
 light:
+ 
+
   - platform: esp32_rmt_led_strip
     id: led_rgb_48
     rgb_order: GRB
@@ -356,20 +379,9 @@ light:
             green: 0%
             blue: 50%
             brightness: 30%
-# LED 스트립 설정
-# light:
-#   - platform: esp32_rmt_led_strip
-#     id: led_rgb_48
-#     rgb_order: GRB
-#     pin: GPIO48
-#     num_leds: 30
-#     rmt_channel: 0
-#     chipset: ws2812
-#     name: "led_rgb_light48"
-#     default_transition_length: 0s
+            
 
 
- 
 # light:
 # -------------------------------------------------------------------------
 # 거실1 전등
@@ -400,7 +412,7 @@ light:
     command_off:
       data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x11, 0x02, 0x00]
       ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x11, 0x02, 0x02]
-
+    
 # -------------------------------------------------------------------------
   - platform: uartex
     name: "Light_living_room2" # 거실불2
@@ -426,6 +438,7 @@ light:
       data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x12, 0x02, 0x00]
       ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x12, 0x02, 0x02]
 
+  
 # -------------------------------------------------------------------------
   - platform: uartex
     name: "Light_sofa" # 소파불
@@ -449,7 +462,7 @@ light:
     command_off:
       data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x13, 0x02, 0x00]
       ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x13, 0x02, 0x02]
-
+    
 # -------------------------------------------------------------------------
   - platform: uartex
     name: "Light_front" # 앞불
@@ -474,7 +487,7 @@ light:
     command_off:
       data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x14, 0x02, 0x00]
       ack:  [0x0b, 0x01, 0x19, 0x04, 0x40, 0x14, 0x02, 0x02]
-
+    
 # -------------------------------------------------------------------------
   - platform: uartex
     name: "Light_bogdo" # 복도불
@@ -499,7 +512,7 @@ light:
     command_off:
       data: [0x0b, 0x01, 0x19, 0x02, 0x40, 0x15, 0x02, 0x00]
       ack: [0x0b, 0x01, 0x19, 0x04, 0x40, 0x15, 0x02, 0x02]
-
+    
 # ===================== RS485 Climate  ====================================
 climate:
 
@@ -511,6 +524,7 @@ climate:
 # 끄기 응답 F7 0D 01 18 04 46 11 04 04 17 15 B2 EE
 # 7도  요청 F7 0B 01 18 02 45 11 07 00 B4 EE
 # 7도  응답 F7 0E 01 00 00 00 10 01 02 00 60 E9 FF
+# F70B01180146110000B3EE
 # --------------- climate: ------------------------------------------
 
   - platform: uartex
@@ -522,8 +536,10 @@ climate:
       temperature_step: 1 °C
     state: 
       data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x11]
-      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
-
+      mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]      
+      # data: [0x0B, 0x01, 0x18, 0x01, 0x46, 0x11] #  0x11 부분
+      # mask: [0x0B, 0xff, 0xff, 0xff, 0xff, 0xff] # 동일 
+    
     state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
       offset: 8
       length: 1
@@ -574,6 +590,8 @@ climate:
                 {0x0D, 0x01, 0x18, 0x04, 0x45, 0x11, (uint8_t)x, 0x01}
               };
 # --------------- climate: ------------------------------------------
+   
+    
 
   - platform: uartex
     name: "Boiler_big_room"
@@ -585,6 +603,8 @@ climate:
     state: 
       data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x12]
       mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+      # data: [0x0B, 0x01, 0x18, 0x01, 0x46, 0x12] #  0x11 부분
+      # mask: [0x0B, 0xff, 0xff, 0xff, 0xff, 0xff] # 동일       
     state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
       offset: 8
       length: 1
@@ -625,6 +645,7 @@ climate:
                 {0x0D, 0x01, 0x18, 0x04, 0x45, 0x12, (uint8_t)x, 0x01}
               };
 # --------------- climate: ------------------------------------------
+    
 
   - platform: uartex
     name: "Boiler_small_room"
@@ -636,6 +657,8 @@ climate:
     state: 
       data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x13]
       mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+      # data: [0x0B, 0x01, 0x18, 0x01, 0x46, 0x13] #  0x11 부분
+      # mask: [0x0B, 0xff, 0xff, 0xff, 0xff, 0xff] # 동일       
     state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
       offset: 8
       length: 1
@@ -676,6 +699,7 @@ climate:
                 {0x0D, 0x01, 0x18, 0x04, 0x45, 0x13, (uint8_t)x, 0x01}
               };
 # --------------- climate: ------------------------------------------
+    
 
   - platform: uartex
     name: "Boiler_book_room"
@@ -687,6 +711,8 @@ climate:
     state: 
       data: [0x00, 0x01, 0x18, 0x04, 0x46, 0x14]
       mask: [0x00, 0xff, 0xff, 0xff, 0xff, 0xff]
+      # data: [0x0B, 0x01, 0x18, 0x01, 0x46, 0x14] #  0x11 부분
+      # mask: [0x0B, 0xff, 0xff, 0xff, 0xff, 0xff] # 동일     
     state_temperature_current: #Required (현재온도 State, RS485 Sensor 설정 참고, sensor:로 대체 가능)
       offset: 8
       length: 1
@@ -727,9 +753,26 @@ climate:
                 {0x0D, 0x01, 0x18, 0x04, 0x45, 0x14, (uint8_t)x, 0x01}
               };
 # --------------- climate: ------------------------------------------              
+
+ 
+ 
+switch:
+  - platform: gpio
+    name: "interval_uart_sw_5_Sec"
+    id: interval_uart_sw
+    pin: GPIO12  # 사용할 핀 번호 (필요에 따라 수정)
+    inverted: false  # 핀의 반전 여부, 필요에 따라 조정
+    restore_mode: ALWAYS_ON  # ESP32가 재부팅 후에도 기본적으로 켜져 있도록 설정
+    on_turn_on:
+      - lambda: |-
+          ESP_LOGD("interval_uart_sw", "Switch turned on.");
+    on_turn_off:
+      - lambda: |-
+          ESP_LOGD("interval_uart_sw", "Switch turned off.");
+
 #--------------------------------------------------------------------------
 # switch:
-switch:
+# switch:
   - platform: restart
     id: Restart_Node_id
     name: "Restart Node"
@@ -754,6 +797,7 @@ switch:
       data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x11, 0x04, 0x00]
       ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x11, 0x04, 0x04]
 # ===============================================================================================
+    
 # ===============================================================================================
   - platform: uartex
     name: "Boiler_big_room_sw" # 안방불
@@ -774,6 +818,7 @@ switch:
       data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x12, 0x04, 0x00]
       ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x12, 0x04, 0x04]
 # ===============================================================================================
+    
 # ===============================================================================================
   - platform: uartex
     name: "Boiler_small_room_sw" # 작은방불
@@ -794,6 +839,7 @@ switch:
       data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x13, 0x04, 0x00]
       ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x13, 0x04, 0x04]
 # ===============================================================================================
+    
 
 # ===============================================================================================
   - platform: uartex
@@ -815,6 +861,7 @@ switch:
       data: [0x0B, 0x01, 0x18, 0x02, 0x46, 0x14, 0x04, 0x00]
       ack: [0x0D, 0x01, 0x18, 0x04, 0x46, 0x14, 0x04, 0x04]
 # ===============================================================================================
+
 
 # 보일러  climate 스위치 구성으로  All switch 구성 준비
 # =====================================switch==========================================================
@@ -1603,4 +1650,3 @@ button:
 # 기준으로 작성 횔용 수정 합니다
 # =====================================  2025_0112_0033_00
 
-            
