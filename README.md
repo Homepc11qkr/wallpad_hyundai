@@ -17,6 +17,13 @@ github 정보 > external_components >
       - source: github://eigger/espcomponents/relreases/latest
         components: [ uartex ]
         refresh: always
+
+external_components:
+  # - source: github://eigger/espcomponents/relreases/latest
+  - source: github://eigger/espcomponents@v250312
+    # 2025_0327_2358_01
+    components: [ uartex ]
+    refresh: always  
     
 
 전체 esphome esp32 basic 제품과 ttl to 485 구성  yaml 파일은
@@ -30,5 +37,5 @@ s:\esphome\485_ttl_esp32dev_ip84.yaml
 https://cafe.naver.com/homestation/237
 
 https://11q.kr/www/bbs/board.php?bo_table=co3&wr_id=2823
-
+27-03-25 23:58 42
 
