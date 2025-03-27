@@ -104,8 +104,8 @@ uart:
   parity: NONE
   data_bits: 8
 
- 
-
+# 월패드 없이 구성시 > 상태패킷 주기적으로 발송 
+# 상태패킷 추가 > 2025_0327_2351_34 > 스위치단자 동작시 esphome 스위치 바로동작 확인
 interval:
   - id: interval_update
     interval: 5000ms  # 초기값 (5초)
