@@ -1,0 +1,181 @@
+esphome:
+  name: "rs485"
+  friendly_name: ESPHome rs485
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+# logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "l+Sz8QooLOSswRnv114sTqGuhNvcYbx59mVsNqLrXYNP6cjF1G="
+
+ota:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  manual_ip:
+    static_ip: 192.168.0.105
+    gateway: 192.168.0.1
+    subnet: 255.255.255.0
+    dns1: 8.8.8.8
+    dns2: 8.8.4.4
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Esphome-Web-Db4028"
+    password: "ZNirI0uA8ESr"
+# RS485 Component (for ttl to rs485 module)
+#  - esp8266: UART0 (TX: GPIO1, RX: GPIO3)
+#  - esp32: UART2 (TX: GPIO17, RX: GPIO16)
+captive_portal: #  esphome only
+
+external_components:
+- source: github://greays/esphome@rs485
+  components: [ rs485 ]
+  # esp32 basic 제품에서만 구동동작
+
+  # ---- > ok
+  # Enable logging
+logger:
+  baud_rate: 0
+  # level: DEBUG #기본값
+  # level: VERBOSE #사용하지 않는 패킷만 출력
+  level: VERY_VERBOSE #전체 패킷 출력
+# RS485 Component (for ttl to rs485 module)
+#  - esp8266: UART0 (TX: GPIO1, RX: GPIO3)
+#  - esp32: UART2 (TX: GPIO17, RX: GPIO16)
+
+rs485:
+  baud_rate: 9600 #Required
+  data_bits: 8 #Option(default: 8)
+  parity: 0 #Option(default: 0)
+  stop_bits: 1 #Option(default: 1)
+
+  rx_wait: 10 #Option(default: 10ms) -> 수신 메시지 대기시간 (10ms 미만으로 수신된 메시지만 한 패킷으로 판단)
+  tx_interval: 50 #Option(default: 50ms) -> 발신 메시지 전송 간격 (패킷 수신 후 50ms 대기 후 전송)
+  tx_wait: 100 #Option(default: 50ms) -> 발신 메시지 Ack 대기시간
+  tx_retry_cnt: 3 #Option(default: 3)    -> 발신 메시지 Ack 없을 경우 재시도 횟수
+  # ctrl_pin: GPIO2 #Option -> 수동 제어 모듈 사용시 셋팅 (MAX485모듈의 DE,RE에 연결된 PIN)
+  prefix: [ 0xf7 ] #Option -> 값 세팅시 모든 수신 패킷 Check, 발신 패킷에 Append
+  suffix: [ 0xee ] #Option -> 값 세팅시 모든 수신 패킷 Check, 발신 패킷에 Append
+
+  checksum: True #Option(default: False) -> 체크섬 사용여부 (lambda 사용시 세팅 불필요)
+  # checksum: |- #Option -> Default(CheckSum8 Xor) 체크섬 아닐 경우 직접 로직 구현(아래 값은 Default 로직임)
+  #   // @param: const uint8_t *data, const unsigned short len
+  #   // @return: uint8_t
+  #   uint8_t crc = 0xF7; // data 변수에는 prefix 제외되어 있음
+  #   for(num_t i=0; i<len; i++)
+  #     crc ^= data[i];
+  #   return crc;
+
+  checksum2: False #Option(default: False) -> ADD 체크섬 사용여부
+  # checksum2: !lambda |- #Option -> Default(CheckSum8 Add) 체크섬 아닐 경우 직접 로직 구현(아래 값은 Default 로직임)
+  #   // @param: const uint8_t *data, const unsigned short len, const uint8_t checksum1
+  #   // @return: uint8_t
+  #   uint8_t crc = 0xF7; // data 변수에는 prefix 제외되어 있음
+  #   for(num_t i=0; i<len; i++)
+  #     crc += data[i];
+  #   crc += checksum1; // 첫번째 체크섬 계산 결과
+  #   return crc;
+
+  state_response:
+    #Option -> 값 세팅시 response 패킷 수신 후에 명령 패킷 송신
+    data: [ 0x4 ] #비트연산 시 위치 값 참고 => 1: 0x01, 2: 0x02, 3: 0x04, 4: 0x08, 5: 0x10, 6: 0x20, 7: 0x40, 8: 0x80
+    offset: 3
+    and_operator: False #Option(default: False) 수신패킷의 offset 위치와 data[0]를 And 비트연산
+    inverted: False #Option(default: False) 결과 값 반전(일치하지 않을 경우 참)
+    # packet_monitor: #Option -> 패킷 모니터: Array 없으면 전체 출력, 있을 경우 or 조건 (logger level DEBUG 추천)
+    # - [0x0c, 0x01, 0x2b]  # offset: 0
+    # - data: [0x19, 0x04, 0x40, 0x23]
+    # offset: 2
+    # ======rs485: 여기까지 ok===>  
+    #  보드에 각각  Rx <---> Tx 을 제대로 연결
+
+    # RS485 Light(like Binary Light)
+    # 복도	켜기	요청	0xF7 0x0B 0x01 0x19 0x02 0x40 0x15 0x01 0x00 0xB2 0xEE
+    # 복도	켜기	응답	0xF7 0x0B 0x01 0x19 0x04 0x40 0x15 0x01 0x01 0xB5 0xEE
+    # 복도	끄기	요청	0xF7 0x0B 0x01 0x19 0x02 0x40 0x15 0x02 0x00 0xB1 0xEE
+    # 복도	끄기	응답	0xF7 0x0B 0x01 0x19 0x04 0x40 0x15 0x02 0x02 0xB5 0xEE
+
+light:
+- platform: rs485
+  name: "esp32_dockdo"
+  device: [ 0xb, 0x1, 0x19, 0x4 ]
+  sub_device:
+    offset: 5
+    data: [ 0x15 ]
+  state_on:
+    offset: 7
+    data: [ 0x1 ]
+  state_off:
+    offset: 7
+    data: [ 0x2 ]
+  command_on:
+    data: [ 0xb, 0x1, 0x19, 0x2, 0x40, 0x15, 0x1, 0x0 ]
+    ack: [ 0xb, 0x1, 0x19, 0x4, 0x40, 0x15, 0x1, 0x1 ]
+  command_off:
+    data: [ 0xb, 0x1, 0x19, 0x2, 0x40, 0x15, 0x2, 0x0 ]
+    ack: [ 0xb, 0x1, 0x19, 0x4, 0x40, 0x15, 0x2, 0x2 ]
+
+#  - esp32: UART2 (TX: GPIO17, RX: GPIO16)
+#  RXD <---> TX: GPIO17, TXD <--->  RX: GPIO16
+#  this file rs485.yaml 상단 설정 logger: #  baud_rate: 0 ---> level: VERY_VERBOSE #전체 패킷 출력으로 설정
+#  Ack: 0xF7 0x0B 0x01 0x19 0x04 0x40 0x15 0x01 0x01 0xB5 0xEE (11 byte), Gap Time: 71ms  on시 ack 나오면 성공
+# RS485 Climate
+climate:
+# [작은방] 0x14
+- platform: rs485
+  name: "esp32_serjaeboiler"
+  visual:
+    min_temperature: 7 °C
+    max_temperature: 35 °C
+    temperature_step: 1 °C
+  device: [ 0xd, 0x1, 0x18, 0x4, 0x46, 0x14, 0x0 ]
+  state_current:
+    offset: 8
+    length: 1
+    precision: 0
+  state_target:
+    offset: 9
+    length: 1
+    precision: 0
+  state_off:
+    offset: 7
+    data: [ 0x4 ]
+  state_heat:
+    offset: 7
+    data: [ 0x1 ]
+  state_away:
+    offset: 7
+    data: [ 0x7 ]
+  command_off:
+    #Required (끄기 명령)
+    data: [ 0xb, 0x1, 0x18, 0x2, 0x46, 0x14, 0x4, 0x0 ]
+    ack: [ 0xd, 0x1, 0x18, 0x4, 0x46, 0x14, 0x4, 0x4 ]
+  command_heat:
+    #Option (난방모드 켜기)
+    data: [ 0xb, 0x1, 0x18, 0x2, 0x46, 0x14, 0x1, 0x0 ]
+    ack: [ 0xd, 0x1, 0x18, 0x4, 0x46, 0x14, 0x1, 0x1 ]
+  command_away:
+    #Option (외출 켜기)
+    data: [ 0xb, 0x1, 0x18, 0x2, 0x45, 0x14, 0x7, 0x0 ]
+    ack: [ 0xd, 0x1, 0x18, 0x4, 0x45, 0x14, 0x7, 0x1 ]
+  command_temperature: !lambda |- #Required (온도 조절)
+    // @param: const float x
+    return {
+              {0x0B, 0x01, 0x18, 0x02, 0x45, 0x14, (uint8_t)x, 0x00},
+              {0x0D, 0x01, 0x18, 0x04, 0x45, 0x14, (uint8_t)x, 0x01}
+           };
+
+# 서재	끄기	요청		0xF7, 	0x0B, 	0x01, 	0x18, 	0x02, 	0x46, 	0x14, 	0x04, 	0x00, 	0xB1, 	0xEE, 		
+# 서재	끄기	응답		0xF7, 	0x0D, 	0x01, 	0x18, 	0x04, 	0x46, 	0x14, 	0x04, 	0x04, 	0x17, 	0x17, 	0xB5, 	0xEE, 
+# 서재	켜기	요청		0xF7, 	0x0B, 	0x01, 	0x18, 	0x02, 	0x46, 	0x14, 	0x01, 	0x00, 	0xB4, 	0xEE, 		
+# 서재	켜기	응답		0xF7, 	0x0D, 	0x01, 	0x18, 	0x04, 	0x46, 	0x14, 	0x01, 	0x01, 	0x17, 	0x17, 	0xB5, 	0xEE, 
+# 서재	7	    요청		0xF7, 	0x0B, 	0x01, 	0x18, 	0x02, 	0x45, 	0x14, 	0x07, 	0x00, 	0xB1, 	0xEE, 		
+# 서재	7	    응답		0xF7, 	0x0D, 	0x01, 	0x18, 	0x04, 	0x45, 	0x14, 	0x07, 	0x01, 	0x17, 	0x07, 	0xA0, 	0xEE, 
